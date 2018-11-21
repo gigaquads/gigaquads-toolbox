@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+ORG=$1
+REPO=$2
+BRANCH=$3
+DEST=$4
+AUTH_TOKEN=$5
+
+TMP_PATH=/tmp
+TMP_ID=`date +%s`
+TMP_FILE=$TMP_PATH/fetch-repo-$TMP_ID.tar
+
+
+echo "======================="
+echo "TMP $TMP_FILE"
+echo "ORG $ORG"
+echo "REPO $REPO"
+echo "BRANCH $BRANCH"
+echo "DEST $DEST"
+echo "AUTH $AUTH_TOKEN"
+echo "======================="
+
+
+exit
+if [[ ! -f $DEST/setup.py ]]; then
+    mkdir -p $DEST
+    if [ ! -z $AUTH_TOKEN ]
+    then
+      CURL_AUTH_ARG="Authorization: token $AUTH_TOKEN"
+    else
+      CURL_AUTH_ARG=''
+    fi
+    curl -H "$CURL_AUTH_ARG" -L "https://api.github.com/repos/$ORG/$REPO/tarball/$BRANCH" > $TMP_FILE && \
+        tar --strip-components=1 -zxvf $TMP_FILE -C $DEST
+    rm -f $TMP_FILE
+else
+    echo ""
+    echo "Using existing code in $DEST"
+    echo ""
+    echo ""
+fi
+
+cd $DEST
+install
+#until pip check;
+#do
+#  install
+#done
