@@ -1,48 +1,145 @@
-#!/usr/bin/env bash
-
-ORG=$1
-REPO=$2
-BRANCH=$3
-DEST=$4
-AUTH_TOKEN=$5
-
-TMP_PATH=/tmp
-TMP_ID=`date +%s`
-TMP_FILE=$TMP_PATH/fetch-repo-$TMP_ID.tar
+#!/usr/bin/env python3
+import argparse
+import requests
+import tarfile
+import time
 
 
-echo "======================="
-echo "TMP $TMP_FILE"
-echo "ORG $ORG"
-echo "REPO $REPO"
-echo "BRANCH $BRANCH"
-echo "DEST $DEST"
-echo "AUTH $AUTH_TOKEN"
-echo "======================="
+def main():
+    args = parse_args()
+    package = fetch_git(
+        git_server=args.git_server,
+        org_name=args.org_name,
+        repo_name=args.repo_name,
+        branch_name=args.branch_name,
+        github_token=args.github_token,
+        gitlab_token=args.gitlab_token,
+        gitlab_host=args.gitlab_host
+    )
+    import ipdb
+    ipdb.set_trace()
+    print('=' * 100)
+    unpack_package(package, args.dest)
 
 
-exit
-if [[ ! -f $DEST/setup.py ]]; then
-    mkdir -p $DEST
-    if [ ! -z $AUTH_TOKEN ]
-    then
-      CURL_AUTH_ARG="Authorization: token $AUTH_TOKEN"
-    else
-      CURL_AUTH_ARG=''
-    fi
-    curl -H "$CURL_AUTH_ARG" -L "https://api.github.com/repos/$ORG/$REPO/tarball/$BRANCH" > $TMP_FILE && \
-        tar --strip-components=1 -zxvf $TMP_FILE -C $DEST
-    rm -f $TMP_FILE
-else
-    echo ""
-    echo "Using existing code in $DEST"
-    echo ""
-    echo ""
-fi
+def parse_args():
+    parser = argparse.ArgumentParser(description='Fetch a repository')
+    # positional
+    parser.add_argument('git_server', help='Git server')
+    parser.add_argument('org_name', help='Organization name')
+    parser.add_argument('repo_name', help='Repository name')
+    parser.add_argument('branch_name', help='Branch name')
+    # optional data
+    parser.add_argument('--dest', help='Destination', default='./')
+    # server-specific data
+    # github
+    parser.add_argument('--github_token', help='Github token')
+    # gitlab
+    parser.add_argument('--gitlab_host', help='Gitlab host')
+    parser.add_argument('--gitlab_token', help='Gitlab token')
+    # bitbucket
+    parser.add_argument('--bitbucket_user', help='Bitbucket user')
+    parser.add_argument('--bitbucket_password', help='Bitbucket password')
+    args = parser.parse_args()
+    return args
 
-cd $DEST
-install
-#until pip check;
-#do
-#  install
-#done
+
+def build_temp_package_filepath():
+    tmp_path = "/tmp"
+    tmp_id = round(time.time())
+    return "{}/fetch-repo-{}.tar".format(tmp_path, tmp_id)
+
+
+def _fetch_package_requests(headers, auth):
+    return response
+
+
+def _fetch_package_curl(headers, auth):
+    pass
+
+
+def fetch_package(source, headers=None, auth=None):
+    """
+    Download a package and return a package object
+    """
+    dest = build_temp_package_filepath()
+    response = requests.get(source, stream=True, headers=headers, auth=auth)
+    response.raise_for_status()
+    with open(dest, 'wb') as handle:
+        for block in response.iter_content(1024):
+            handle.write(block)
+    tf = tarfile.open(dest)
+    return tf
+
+
+def unpack_package(package, dest):
+    """
+    Unpack a package, that is a tar file
+    """
+    members = []
+    for member in package.getmembers():
+        # this is the equivalent of `--strip-components 1` when using tar CLI
+        split_res = member.path.split('/', 1)
+        if len(split_res) == 1:
+            continue
+        stripped_path = split_res[1]
+        if not stripped_path:
+            continue
+        # set the name to the stripped path to take effect when extracting
+        member.name = stripped_path
+        members.append(member)
+    package.extractall(dest, members=members)
+
+
+def fetch_github(
+    org_name, repo_name, branch_name, github_token=None, **kwargs
+):
+    headers = {}
+    if github_token:
+        headers['Authorization'] = 'token {}'.format(github_token)
+    url = "https://api.github.com/repos/{org_name}/{repo_name}/tarball/{branch_name}".format(
+        org_name=org_name, repo_name=repo_name, branch_name=branch_name
+    )
+    return fetch_package(url, headers=headers)
+
+
+def fetch_gitlab(
+    org_name, repo_name, branch_name, gitlab_host, gitlab_token=None, **kwargs
+):
+    headers = {}
+    if gitlab_token:
+        headers['Private-Token'] = gitlab_token
+    url = "{gitlab_url}/{org_name}/{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
+        org_name=org_name,
+        repo_name=repo_name,
+        branch_name=branch_name,
+        gitlab_url=gitlab_url,
+    )
+    return fetch_package(url, headers=headers)
+
+def fetch_bitbucket(
+    org_name,
+    repo_name,
+    branch_name,
+    bitbucket_user=None,
+    bitbucket_password=None,
+    **kwargs
+):
+    auth = (bitbucket_user, bitbucket_password)
+    url = "https://bitbucket.org/{org_name}/{repo_name}/get/{branch_name}.tar.gz".format(
+        org_name=org_name, repo_name=repo_name, branch_name=branch_name
+    )
+    return fetch_package(url, auth=auth)
+
+
+def fetch_git(git_server, *args, **kwargs):
+    if git_server in ('github', 'gitlab', 'bitbucket'):
+        fetch_method = 'fetch_{}'.format(git_server)
+        package = eval(fetch_method)(*args, **kwargs)
+        return package
+    else:
+        raise Exception('unknown git server "{}"'.format(git_server))
+
+
+if __name__ == '__main__':
+    main()
