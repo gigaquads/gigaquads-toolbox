@@ -16,9 +16,6 @@ def main():
         gitlab_token=args.gitlab_token,
         gitlab_host=args.gitlab_host
     )
-    import ipdb
-    ipdb.set_trace()
-    print('=' * 100)
     unpack_package(package, args.dest)
 
 
