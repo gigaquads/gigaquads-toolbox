@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import argparse
-import requests
+import os
 import tarfile
 import time
 
+GIT_SERVERS = ('github', 'gitlab', 'bitbucket')
+FETCH_METHODS = ('curl_cli', 'requests')
 
 def main():
     args = parse_args()
@@ -14,20 +16,23 @@ def main():
         branch_name=args.branch_name,
         github_token=args.github_token,
         gitlab_token=args.gitlab_token,
-        gitlab_host=args.gitlab_host
+        gitlab_host=args.gitlab_host,
+        bitbucket_user=args.bitbucket_user,
+        bitbucket_password=args.bitbucket_password
     )
     unpack_package(package, args.dest)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Fetch a repository')
-    # positional
+    # primary data
     parser.add_argument('git_server', help='Git server')
     parser.add_argument('org_name', help='Organization name')
     parser.add_argument('repo_name', help='Repository name')
     parser.add_argument('branch_name', help='Branch name')
     # optional data
     parser.add_argument('--dest', help='Destination', default='./')
+    parser.add_argument('--fetch_method', help='Fetch method')
     # server-specific data
     # github
     parser.add_argument('--github_token', help='Github token')
@@ -40,6 +45,11 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def sys_exec(command):
+    """
+    Run a command and capture it's output
+    """
+    return os.popen(command).read().rstrip()
 
 def build_temp_package_filepath():
     tmp_path = "/tmp"
@@ -47,26 +57,60 @@ def build_temp_package_filepath():
     return "{}/fetch-repo-{}.tar".format(tmp_path, tmp_id)
 
 
-def _fetch_package_requests(headers, auth):
-    return response
+
+def detect_fetch_method(preferred: list=None):
+    methods = preferred or FETCH_METHODS
+    for method in methods:
+        if method == 'curl_cli':
+            if sys_exec('which curl') or None:
+                return method
+        elif method == 'requests':  
+            import importlib
+            if importlib.util.find_spec("requests") or None:
+                return method
 
 
-def _fetch_package_curl(headers, auth):
-    pass
-
-
-def fetch_package(source, headers=None, auth=None):
+def _fetch_package_requests(source, headers, auth):
     """
-    Download a package and return a package object
+    Fetch using python's requests module
     """
+    import requests
     dest = build_temp_package_filepath()
     response = requests.get(source, stream=True, headers=headers, auth=auth)
     response.raise_for_status()
     with open(dest, 'wb') as handle:
         for block in response.iter_content(1024):
             handle.write(block)
-    tf = tarfile.open(dest)
-    return tf
+    package = tarfile.open(dest)
+    return package
+
+
+def _fetch_package_curl_cli(source, headers, auth):
+    dest = build_temp_package_filepath()
+    headers = ["-H '{}: {}'".format(k, v) for k, v in headers]
+    if auth:
+        headers.append('-u {}:{}'.format(*auth))
+    cmd = "curl -s -L '{source}' -o {dest} {headers}".format(
+        source=source, headers=headers if headers else '', dest=dest
+    )
+    sys_exec(cmd)
+    package = tarfile.open(dest)
+    return package
+
+
+def fetch_package(source, method=None, headers=None, auth=None):
+    """
+    Download a package and return a package object
+    """
+    #if method not in ('requests', 'curl_cli'):
+    #    raise Exception('Fetch package method "{}" not found'.format(method))
+    if not method:
+        method = detect_fetch_method()
+    print('Using fetch method "{}"'.format(method))
+    print('Source {}'.format(source))
+    fetch_method = '_fetch_package_{}'.format(method)
+    package = eval(fetch_method)(source, headers, auth)
+    return package
 
 
 def unpack_package(package, dest):
@@ -114,6 +158,7 @@ def fetch_gitlab(
     )
     return fetch_package(url, headers=headers)
 
+
 def fetch_bitbucket(
     org_name,
     repo_name,
@@ -130,12 +175,12 @@ def fetch_bitbucket(
 
 
 def fetch_git(git_server, *args, **kwargs):
-    if git_server in ('github', 'gitlab', 'bitbucket'):
-        fetch_method = 'fetch_{}'.format(git_server)
-        package = eval(fetch_method)(*args, **kwargs)
-        return package
-    else:
+    if git_server not in GIT_SERVERS:
         raise Exception('unknown git server "{}"'.format(git_server))
+    fetch_server = 'fetch_{}'.format(git_server)
+    package = eval(fetch_server)(*args, **kwargs)
+    return package
+    
 
 
 if __name__ == '__main__':
