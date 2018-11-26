@@ -10,7 +10,8 @@ pip_install(){
 
 # perform project 
 install(){
-    python_setup && pip_install
+    python_setup
+    pip_install
 }
 
 # do it
