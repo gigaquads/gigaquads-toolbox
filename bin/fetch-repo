@@ -51,6 +51,7 @@ def sys_exec(command):
     """
     Run a command and capture it's output
     """
+    print('Running: {}'.format(command))
     return os.popen(command).read().rstrip()
 
 def build_temp_package_filepath():
