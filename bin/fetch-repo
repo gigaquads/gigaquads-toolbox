@@ -54,10 +54,10 @@ def sys_exec(command):
     print('Running: {}'.format(command))
     return os.popen(command).read().rstrip()
 
-def build_temp_package_filepath():
+def build_temp_package_filepath(key=None):
     tmp_path = "/tmp"
     tmp_id = round(time.time())
-    return "{}/fetch-repo-{}.tar".format(tmp_path, tmp_id)
+    return "{}/fetch-repo-{}.tar.gz".format(tmp_path, tmp_id)
 
 
 
