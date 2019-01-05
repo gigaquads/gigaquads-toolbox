@@ -93,11 +93,11 @@ def _fetch_package_curl_cli(source, headers, auth):
     headers = ["-H '{}: {}'".format(k, v) for k, v in headers.items()]
     if auth:
         headers.append('-u {}:{}'.format(*auth))
-    cmd = "curl -s -L '{source}' -o {dest} {headers}".format(
+    cmd = "curl -L '{source}' -o {dest} {headers}".format(
         source=source, headers=''.join(headers) if headers else '', dest=dest
     )
-    sys_exec(cmd)
-    package = tarfile.open(dest)
+    res = sys_exec(cmd)
+    package = tarfile.open(dest, mode="r:gz")
     return package
 
 
