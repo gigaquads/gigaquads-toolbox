@@ -20,6 +20,8 @@ def main():
         bitbucket_user=args.bitbucket_user,
         bitbucket_password=args.bitbucket_password
     )
+    print('Retrieved package')
+    print('Unpacking contents into {}'.format(args.dest))
     unpack_package(package, args.dest)
 
 
@@ -87,11 +89,11 @@ def _fetch_package_requests(source, headers, auth):
 
 def _fetch_package_curl_cli(source, headers, auth):
     dest = build_temp_package_filepath()
-    headers = ["-H '{}: {}'".format(k, v) for k, v in headers]
+    headers = ["-H '{}: {}'".format(k, v) for k, v in headers.items()]
     if auth:
         headers.append('-u {}:{}'.format(*auth))
     cmd = "curl -s -L '{source}' -o {dest} {headers}".format(
-        source=source, headers=headers if headers else '', dest=dest
+        source=source, headers=''.join(headers) if headers else '', dest=dest
     )
     sys_exec(cmd)
     package = tarfile.open(dest)
@@ -150,11 +152,11 @@ def fetch_gitlab(
     headers = {}
     if gitlab_token:
         headers['Private-Token'] = gitlab_token
-    url = "{gitlab_url}/{org_name}/{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
+    url = "{gitlab_host}/{org_name}/{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
         org_name=org_name,
         repo_name=repo_name,
         branch_name=branch_name,
-        gitlab_url=gitlab_url,
+        gitlab_host=gitlab_host,
     )
     return fetch_package(url, headers=headers)
 
