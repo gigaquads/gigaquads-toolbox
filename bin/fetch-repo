@@ -4,16 +4,16 @@ import os
 import tarfile
 import time
 
-GIT_SERVERS = ('github', 'gitlab', 'bitbucket')
+REPO_SOURCES = ('github', 'gitlab', 'bitbucket')
 FETCH_METHODS = ('curl_cli', 'requests')
 
 def main():
     args = parse_args()
     package = fetch_git(
-        git_server=args.git_server,
-        org_name=args.org_name,
-        repo_name=args.repo_name,
-        branch_name=args.branch_name,
+        source_name=args.source,
+        group_name=args.group,
+        repo_name=args.repo,
+        branch_name=args.branch,
         github_token=args.github_token,
         gitlab_token=args.gitlab_token,
         gitlab_host=args.gitlab_host,
@@ -21,15 +21,16 @@ def main():
         bitbucket_password=args.bitbucket_password
     )
     unpack_package(package, args.dest)
+    print('Fetch repo done')
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Fetch a repository')
     # primary data
-    parser.add_argument('git_server', help='Git server')
-    parser.add_argument('org_name', help='Organization name')
-    parser.add_argument('repo_name', help='Repository name')
-    parser.add_argument('branch_name', help='Branch name')
+    parser.add_argument('--source', help='Git server')
+    parser.add_argument('--group', help='Organization name')
+    parser.add_argument('--repo', help='Repository name')
+    parser.add_argument('--branch', help='Branch name')
     # optional data
     parser.add_argument('--dest', help='Destination', default='./')
     parser.add_argument('--fetch_method', help='Fetch method')
@@ -87,12 +88,15 @@ def _fetch_package_requests(source, headers, auth):
 
 def _fetch_package_curl_cli(source, headers, auth):
     dest = build_temp_package_filepath()
-    headers = ["-H '{}: {}'".format(k, v) for k, v in headers]
+    import ipdb; ipdb.set_trace(); print('=' * 100)
+    if headers:
+        headers = ' '.join(["-H '{}: {}'".format(k, v) for k, v in headers.items()])
     if auth:
         headers.append('-u {}:{}'.format(*auth))
     cmd = "curl -s -L '{source}' -o {dest} {headers}".format(
         source=source, headers=headers if headers else '', dest=dest
     )
+    print(cmd)
     sys_exec(cmd)
     package = tarfile.open(dest)
     return package
@@ -129,38 +133,39 @@ def unpack_package(package, dest):
         # set the name to the stripped path to take effect when extracting
         member.name = stripped_path
         members.append(member)
+    print(f'unpacking to {dest}')
     package.extractall(dest, members=members)
 
 
 def fetch_github(
-    org_name, repo_name, branch_name, github_token=None, **kwargs
+    group_name, repo_name, branch_name, github_token=None, **kwargs
 ):
     headers = {}
     if github_token:
         headers['Authorization'] = 'token {}'.format(github_token)
-    url = "https://api.github.com/repos/{org_name}/{repo_name}/tarball/{branch_name}".format(
-        org_name=org_name, repo_name=repo_name, branch_name=branch_name
+    url = "https://api.github.com/repos/{group_name}/{repo_name}/tarball/{branch_name}".format(
+        group_name=group_name, repo_name=repo_name, branch_name=branch_name
     )
     return fetch_package(url, headers=headers)
 
 
 def fetch_gitlab(
-    org_name, repo_name, branch_name, gitlab_host, gitlab_token=None, **kwargs
+    group_name, repo_name, branch_name, gitlab_host, gitlab_token=None, **kwargs
 ):
     headers = {}
     if gitlab_token:
         headers['Private-Token'] = gitlab_token
-    url = "{gitlab_url}/{org_name}/{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
-        org_name=org_name,
+    url = "{gitlab_host}/{group_name}/{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
+        group_name=group_name,
         repo_name=repo_name,
         branch_name=branch_name,
-        gitlab_url=gitlab_url,
+        gitlab_host=gitlab_host,
     )
     return fetch_package(url, headers=headers)
 
 
 def fetch_bitbucket(
-    org_name,
+    group_name,
     repo_name,
     branch_name,
     bitbucket_user=None,
@@ -168,16 +173,16 @@ def fetch_bitbucket(
     **kwargs
 ):
     auth = (bitbucket_user, bitbucket_password)
-    url = "https://bitbucket.org/{org_name}/{repo_name}/get/{branch_name}.tar.gz".format(
-        org_name=org_name, repo_name=repo_name, branch_name=branch_name
+    url = "https://bitbucket.org/{group_name}/{repo_name}/get/{branch_name}.tar.gz".format(
+        group_name=group_name, repo_name=repo_name, branch_name=branch_name
     )
     return fetch_package(url, auth=auth)
 
 
-def fetch_git(git_server, *args, **kwargs):
-    if git_server not in GIT_SERVERS:
-        raise Exception('unknown git server "{}"'.format(git_server))
-    fetch_server = 'fetch_{}'.format(git_server)
+def fetch_git(source_name, *args, **kwargs):
+    if source_name not in REPO_SOURCES:
+        raise Exception('unknown repo source "{}"'.format(source_name))
+    fetch_server = 'fetch_{}'.format(source_name)
     package = eval(fetch_server)(*args, **kwargs)
     return package
     
