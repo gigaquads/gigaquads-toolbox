@@ -133,7 +133,7 @@ def unpack_package(package, dest):
         # set the name to the stripped path to take effect when extracting
         member.name = stripped_path
         members.append(member)
-    print(f'unpacking to {dest}')
+    print('unpacking to {dest}'.format(dest=dest))
     package.extractall(dest, members=members)
 
 
