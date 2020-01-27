@@ -20,6 +20,8 @@ def main():
         bitbucket_user=args.bitbucket_user,
         bitbucket_password=args.bitbucket_password
     )
+    print('Retrieved package')
+    print('Unpacking contents into {}'.format(args.dest))
     unpack_package(package, args.dest)
     print('Fetch repo done')
 
@@ -50,12 +52,13 @@ def sys_exec(command):
     """
     Run a command and capture it's output
     """
+    print('Running: {}'.format(command))
     return os.popen(command).read().rstrip()
 
-def build_temp_package_filepath():
+def build_temp_package_filepath(key=None):
     tmp_path = "/tmp"
     tmp_id = round(time.time())
-    return "{}/fetch-repo-{}.tar".format(tmp_path, tmp_id)
+    return "{}/fetch-repo-{}.tar.gz".format(tmp_path, tmp_id)
 
 
 
@@ -88,17 +91,14 @@ def _fetch_package_requests(source, headers, auth):
 
 def _fetch_package_curl_cli(source, headers, auth):
     dest = build_temp_package_filepath()
-    import ipdb; ipdb.set_trace(); print('=' * 100)
-    if headers:
-        headers = ' '.join(["-H '{}: {}'".format(k, v) for k, v in headers.items()])
+    headers = ["-H '{}: {}'".format(k, v) for k, v in headers.items()]
     if auth:
         headers.append('-u {}:{}'.format(*auth))
-    cmd = "curl -s -L '{source}' -o {dest} {headers}".format(
-        source=source, headers=headers if headers else '', dest=dest
+    cmd = "curl -L '{source}' -o {dest} {headers}".format(
+        source=source, headers=''.join(headers) if headers else '', dest=dest
     )
-    print(cmd)
-    sys_exec(cmd)
-    package = tarfile.open(dest)
+    res = sys_exec(cmd)
+    package = tarfile.open(dest, mode="r:gz")
     return package
 
 
@@ -155,7 +155,8 @@ def fetch_gitlab(
     headers = {}
     if gitlab_token:
         headers['Private-Token'] = gitlab_token
-    url = "{gitlab_host}/{group_name}/{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
+    #url = "{gitlab_host}/{group_name}/{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
+    url = "{gitlab_host}/api/v4/projects/{group_name}%2F{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
         group_name=group_name,
         repo_name=repo_name,
         branch_name=branch_name,
