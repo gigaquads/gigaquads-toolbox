@@ -155,7 +155,7 @@ def fetch_gitlab(
     if gitlab_token:
         headers['Private-Token'] = gitlab_token
     #url = "{gitlab_host}/{group_name}/{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
-    url = "{gitlab_host}/api/v4/projects/{group_name}%2F{repo_name}/repository/archive.tar.gz?ref={branch_name}".format(
+    url = "{gitlab_host}/api/v4/projects/{group_name}%2F{repo_name}/repository/archive.tar.gz?sha={branch_name}".format(
         group_name=group_name,
         repo_name=repo_name,
         branch_name=branch_name,
