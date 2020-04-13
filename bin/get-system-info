@@ -1,0 +1,5 @@
+echo ">>> Host details"
+uname -a
+
+echo ">>> Environment details"
+env

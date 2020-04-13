@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+# https://docs.docker.com/registry/introduction/
+import re
+
+from appyratus.cli import (
+    CliProgram,
+    FlagArg,
+    ListArg,
+    OptionalArg,
+    PositionalArg,
+)
+from appyratus.files import File
+from appyratus.utils import (
+    PathUtils,
+    SysUtils,
+)
+
+
+class BuildDockerImageProgram(CliProgram):
+
+    def args(self):
+        return [
+            OptionalArg('file'),
+            OptionalArg('registry', usage='the registry where this image is stored'),
+            OptionalArg('name', usage='the name of the image'),
+            OptionalArg('build_args', usage=''),
+            ListArg('tags', usage='tags to apply to this build'),
+            OptionalArg('context', usage='additional context to pass through'),
+            FlagArg('no_cache', usage='disable cache'),
+            FlagArg(
+                'skip_build',
+                usage='if the build process should be skipped',
+            ),
+            FlagArg(
+                'dry_run',
+                usage='if you do not want to actually run the build command',
+            ),
+        ]
+
+    def perform(self, program):
+        args = program.cli_args
+        name = args.name
+        registry = args.registry
+
+        # resolve the image file
+        image_file = args.file
+        if not image_file:
+            image_file = self.find_image_file()
+        if not image_file:
+            raise Exception('no image file could be foundtypes ')
+
+        image_file_arg = self.build_image_file(image_file)
+        # resolve build args
+        known_build_args = self.get_build_args(image_file)
+        build_args = self.build_build_args(args.build_args, known_build_args)
+
+        image_ref = self.build_image_ref(registry, name)
+        tags = self.build_image_tags(image_ref, args.tags)
+        context = args.context or ''
+
+        kwargs = []
+        if args.no_cache:
+            kwargs.append('--no-cache')
+        kwargs = ','.join(kwargs)
+        build_cmd = f"docker build {image_file_arg} {tags} {build_args} {context} {kwargs} ./"
+        print(build_cmd)
+        # do not execute if marked as a dry run
+        if args.dry_run:
+            return
+        # exec build command
+        SysUtils.sys_exec(build_cmd)
+
+    def build_image_file(self, file_path):
+        if not file_path:
+            return
+        return f'-f {file_path}'
+
+    def find_image_file(self):
+        image_file = None
+
+        def detect_dockerfile(path):
+            if 'Dockerfile' in path:
+                return True
+
+        # look for dockerfiles
+        _, dockerfiles = PathUtils.get_nodes(path='./', predicate=detect_dockerfile)
+        # need to prioritize which file gets read by default
+        if dockerfiles:
+            image_file = dockerfiles[0]
+        return image_file
+
+    def get_build_args(self, image_path):
+        if not image_path:
+            return {}
+        image_data = File.read(image_path)
+        lines = image_data.split('\n')
+        arg_match = r'ARG (.*)=(.*)?'
+        found_args = {}
+        for line in lines:
+            matched = re.match(arg_match, line)
+            if matched:
+                groups = matched.groups()
+                found_args[groups[0]] = groups[1]
+                continue
+        return found_args
+
+    def build_image_ref(self, registry=None, image=None):
+        if not registry:
+            return image
+        return f"{registry}/{image}"
+
+    def build_image_tags(self, image_ref, tags):
+        if not tags:
+            return ''
+        return ' '.join([f'--tag {image_ref}:{t}' for t in tags])
+
+    def build_build_args(self, build_args, known_build_args):
+        if not build_args:
+            return ''
+
+        return ' '.join([f'--build-arg {b}' for b in build_args])
+
+
+def main():
+    program = BuildDockerImageProgram()
+    program.run()
+
+
+if __name__ == '__main__':
+    SysUtils.safe_main(main, debug_level=1)
