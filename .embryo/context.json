@@ -1,0 +1,18 @@
+{
+  "project/base": [
+    {
+      "embryo": {
+        "action": "hatch",
+        "name": "project/base",
+        "timestamp": 1587309764
+      },
+      "project": {
+        "description": "Tools for operating a Gigaquads environment",
+        "name": "gigaquads-toolbox",
+        "version": "0.0.0"
+        "author": "Gigaquads",
+        "author_email": "notdsk@gmail.com"
+      }
+    }
+  ]
+}
