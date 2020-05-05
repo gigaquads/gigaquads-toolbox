@@ -1,17 +1,31 @@
 #!/usr/bin/env bash
 
-python_setup(){
-    python setup.py develop
+AS_USER=$1
+[ ! -z $AS_USER ] && AS_USER='--user'
+
+INSTALL_EXTRAS=$2
+
+develop_project() {
+    python setup.py develop $AS_USER
 }
 
-pip_install(){
-    pip install -r requirements.txt
+install_requirements() {
+    pip install -r requirements.txt $AS_USER
+}
+
+install_extras() {
+  local extras=$1
+  pip install -e .[$extras] $AS_USER
 }
 
 # perform project 
 install(){
-    python_setup
-    pip_install
+    develop_project 
+    install_requirements
+    if [ ! -z $INSTALL_EXTRAS ]
+    then
+      install_extras $INSTALL_EXTRAS
+    fi
 }
 
 # do it
