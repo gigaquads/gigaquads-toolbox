@@ -24,6 +24,7 @@ class BuildDockerImageProgram(CliProgram):
             OptionalArg('registry', usage='the registry where this image is stored'),
             OptionalArg('name', usage='the name of the image'),
             OptionalArg('build_args', usage=''),
+            OptionalArg('target', flags=('-g', '--target'), usage='the target build stage to build up to and including'),
             ListArg('tags', usage='tags to apply to this build'),
             OptionalArg('context', usage='additional context to pass through'),
             FlagArg('no_cache', usage='disable cache'),
@@ -56,13 +57,14 @@ class BuildDockerImageProgram(CliProgram):
 
         image_ref = self.build_image_ref(registry, name)
         tags = self.build_image_tags(image_ref, args.tags)
+        target = self.build_target(args.target)
         context = args.context or ''
 
         kwargs = []
         if args.no_cache:
             kwargs.append('--no-cache')
         kwargs = ','.join(kwargs)
-        build_cmd = f"docker build {image_file_arg} {tags} {build_args} {context} {kwargs} ./"
+        build_cmd = f"docker build {image_file_arg} {tags} {build_args} {context} {kwargs} {target} ./"
         print(build_cmd)
         # do not execute if marked as a dry run
         if args.dry_run:
@@ -74,6 +76,11 @@ class BuildDockerImageProgram(CliProgram):
         if not file_path:
             return
         return f'-f {file_path}'
+
+    def build_target(self, target):
+        if not target:
+            return
+        return f'--target {target}'
 
     def find_image_file(self):
         image_file = None
