@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+UPGRADE=1
+CLEAN=1
+PACKAGES=${@:1}
+[ -z $PACKAGES ] && echo 'no packages specified for install' && exit 1
+
+# get apt up to date
+if [[ $UPGRADE ]]
+then
+  echo 'UPGRADING'
+  apt update
+  apt upgrade
+fi
+
+# install the packages
+echo 'INSTALLING'
+apt install --no-install-recommends -y $PACKAGES
+
+# cleanup
+if [[ $CLEAN ]]
+then
+  echo 'CLEANING'
+  apt-get clean
+  rm -rf /var/lib/apt/lists/*
+fi
