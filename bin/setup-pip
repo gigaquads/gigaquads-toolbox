@@ -1,0 +1,3 @@
+#!/usr/bin/env
+pip install --upgrade pip
+pip install wheel

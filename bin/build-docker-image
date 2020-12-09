@@ -24,7 +24,11 @@ class BuildDockerImageProgram(CliProgram):
             OptionalArg('registry', usage='the registry where this image is stored'),
             OptionalArg('name', usage='the name of the image'),
             OptionalArg('build_args', usage=''),
-            OptionalArg('target', flags=('-g', '--target'), usage='the target build stage to build up to and including'),
+            OptionalArg(
+                'gtarget',
+                #flags=('-g', '--target'),
+                usage='the target build stage to build up to and including'
+            ),
             ListArg('tags', usage='tags to apply to this build'),
             OptionalArg('context', usage='additional context to pass through'),
             FlagArg('no_cache', usage='disable cache'),
@@ -57,7 +61,7 @@ class BuildDockerImageProgram(CliProgram):
 
         image_ref = self.build_image_ref(registry, name)
         tags = self.build_image_tags(image_ref, args.tags)
-        target = self.build_target(args.target)
+        target = self.build_target(args.gtarget)
         context = args.context or ''
 
         kwargs = []
@@ -79,7 +83,7 @@ class BuildDockerImageProgram(CliProgram):
 
     def build_target(self, target):
         if not target:
-            return
+            return ''
         return f'--target {target}'
 
     def find_image_file(self):
@@ -90,10 +94,13 @@ class BuildDockerImageProgram(CliProgram):
                 return True
 
         # look for dockerfiles
-        _, dockerfiles = PathUtils.get_nodes(path='./', predicate=detect_dockerfile)
-        # need to prioritize which file gets read by default
+        _, dockerfiles = PathUtils.get_nodes(path='./', predicate=detect_dockerfile, depth=0)
+        # TODO need to prioritize which file gets read by default
         if dockerfiles:
-            image_file = dockerfiles[0]
+            try:
+                image_file = dockerfiles[dockerfiles.index('./Dockerfile')]
+            except:
+                image_file = dockerfiles[0]
         return image_file
 
     def get_build_args(self, image_path):
